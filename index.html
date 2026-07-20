@@ -657,41 +657,29 @@
         });
 
         // Отправка данных в бота
-        function submitData() {
+function submitData() {
     data.phone = normalizePhone(phoneInput.value);
     const payload = JSON.stringify(data);
     
-    // 🔍 ОТЛАДКА: показываем что отправляем
-    console.log("📤 Отправляем данные:", payload);
-    alert("📤 Данные готовы к отправке:\n\n" + payload);
+    // 🔥 СИГНАЛ 1: Если это окно появилось, значит кнопка работает и данные собраны
+    alert("🚀 ШАГ 1: Данные готовы к отправке!\n\n" + payload);
     
     try {
         tg.sendData(payload);
-        console.log("✅ sendData вызван успешно");
         
-        // ✅ Успех
-        tg.HapticFeedback.notificationOccurred('success');
+        // 🔥 СИГНАЛ 2: Если это окно появилось, значит Telegram принял данные
+        alert("✅ ШАГ 2: Команда sendData успешно отправлена в Telegram!");
+        
         document.body.innerHTML = `
             <div style="text-align:center;padding:60px 20px;">
                 <div style="font-size:64px;">✅</div>
                 <h2 style="margin:16px 0;">Заявка отправлена!</h2>
-                <p style="color:var(--tg-theme-hint-color,#999);">
-                    Менеджер свяжется с вами<br>по номеру ${data.phone}
-                </p>
-                <p style="font-size:12px;color:#999;margin-top:20px;">
-                    Окно закроется автоматически...
-                </p>
+                <p>Окно закроется через 3 секунды...</p>
             </div>
         `;
-        
-        // ⚠️ ВАЖНО: закрываем с задержкой, чтобы sendData успел отправиться!
-        setTimeout(() => {
-            tg.close();
-        }, 3000);
-        
+        setTimeout(() => tg.close(), 3000);
     } catch (e) {
-        console.error("❌ Ошибка sendData:", e);
-        alert("❌ Ошибка отправки:\n" + e.message + "\n\nПопробуйте ещё раз.");
+        alert("❌ ШАГ 3: ОШИБКА ОТПРАВКИ!\n" + e.message);
     }
 }
 
