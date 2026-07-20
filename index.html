@@ -658,22 +658,42 @@
 
         // Отправка данных в бота
         function submitData() {
-            const payload = JSON.stringify(data);
-            tg.HapticFeedback.notificationOccurred('success');
-            try {
-                tg.sendData(payload);
-                document.body.innerHTML = `
-                    <div style="text-align:center;padding:60px 20px;">
-                        <div style="font-size:64px;">✅</div>
-                        <h2 style="margin:16px 0;">Заявка отправлена!</h2>
-                        <p style="color:var(--tg-theme-hint-color,#999);">Менеджер свяжется с вами по номеру ${data.phone}</p>
-                    </div>
-                `;
-                setTimeout(() => tg.close(), 2500);
-            } catch (e) {
-                alert('Ошибка отправки: ' + e.message);
-            }
-        }
+    data.phone = normalizePhone(phoneInput.value);
+    const payload = JSON.stringify(data);
+    
+    // 🔍 ОТЛАДКА: показываем что отправляем
+    console.log("📤 Отправляем данные:", payload);
+    alert("📤 Данные готовы к отправке:\n\n" + payload);
+    
+    try {
+        tg.sendData(payload);
+        console.log("✅ sendData вызван успешно");
+        
+        // ✅ Успех
+        tg.HapticFeedback.notificationOccurred('success');
+        document.body.innerHTML = `
+            <div style="text-align:center;padding:60px 20px;">
+                <div style="font-size:64px;">✅</div>
+                <h2 style="margin:16px 0;">Заявка отправлена!</h2>
+                <p style="color:var(--tg-theme-hint-color,#999);">
+                    Менеджер свяжется с вами<br>по номеру ${data.phone}
+                </p>
+                <p style="font-size:12px;color:#999;margin-top:20px;">
+                    Окно закроется автоматически...
+                </p>
+            </div>
+        `;
+        
+        // ⚠️ ВАЖНО: закрываем с задержкой, чтобы sendData успел отправиться!
+        setTimeout(() => {
+            tg.close();
+        }, 3000);
+        
+    } catch (e) {
+        console.error("❌ Ошибка sendData:", e);
+        alert("❌ Ошибка отправки:\n" + e.message + "\n\nПопробуйте ещё раз.");
+    }
+}
 
         // Инициализация
         renderProgress();
