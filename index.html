@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Заявка на доставку</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            min-height: 100vh;
+            padding: 16px;
+            padding-bottom: 100px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .header p {
+            font-size: 13px;
+            color: var(--tg-theme-hint-color, #999);
+        }
+        .progress {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 24px;
+        }
+        .progress-bar {
+            flex: 1;
+            height: 4px;
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 2px;
+            transition: background 0.3s;
+        }
+        .progress-bar.active {
+            background: var(--tg-theme-button-color, #3390ec);
+        }
+        .step {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        .step.active { display: block; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .step-title {
+            font-size: 17px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+        .step-subtitle {
+            font-size: 13px;
+            color: var(--tg-theme-hint-color, #999);
+            margin-bottom: 16px;
+        }
+        .options {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+        .options.two-cols {
+            grid-template-columns: 1fr 1fr;
+        }
+        .option {
+            background: var(--tg-theme-secondary-bg-color, #f4f4f5);
+            border: 2px solid transparent;
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--tg-theme-text-color, #000);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            user-select: none;
+        }
+        .option:active { transform: scale(0.97); }
+        .option.selected {
+            border-color: var(--tg-theme-button-color, #3390ec);
+            background: var(--tg-theme-button-color, #3390ec);
+            color: var(--tg-theme-button-text-color, #fff);
+        }
+        .input-group { margin-bottom: 16px; }
+        .input-group label {
+            display: block;
+            font-size: 13px;
+            color: var(--tg-theme-hint-color, #999);
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 14px 16px;
+            font-size: 16px;
+            background: var(--tg-theme-secondary-bg-color, #f4f4f5);
+            border: 2px solid transparent;
+            border-radius: 12px;
+            color: var(--tg-theme-text-color, #000);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .input-group input:focus {
+            border-color: var(--tg-theme-button-color, #3390ec);
+        }
+        .calendar {
+            background: var(--tg-theme-secondary-bg-color, #f4f4f5);
+            border-radius: 12px;
+            padding: 12px;
+        }
+        .cal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .cal-header button {
+            background: transparent;
+            border: none;
+            font-size: 20px;
+            color: var(--tg-theme-button-color, #3390ec);
+            padding: 4px 12px;
+            cursor: pointer;
+        }
+        .cal-header span {
+            font-weight: 600;
+            font-size: 15px;
+        }
+        .cal-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+        .cal-weekday {
+            text-align: center;
+            font-size: 11px;
+            color: var(--tg-theme-hint-color, #999);
+            font-weight: 600;
+            padding: 4px 0;
+        }
+        .cal-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s;
+            background: transparent;
+            color: var(--tg-theme-text-color, #000);
+        }
+        .cal-day.empty { visibility: hidden; }
+        .cal-day.past { color: var(--tg-theme-hint-color, #ccc); cursor: not-allowed; }
+        .cal-day:not(.past):active { transform: scale(0.9); }
+        .cal-day.selected {
+            background: var(--tg-theme-button-color, #3390ec);
+            color: var(--tg-theme-button-text-color, #fff);
+            font-weight: 600;
+        }
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 24px;
+        }
+        .btn {
+            flex: 1;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn-primary {
+            background: var(--tg-theme-button-color, #3390ec);
+            color: var(--tg-theme-button-text-color, #fff);
+        }
+        .btn-primary:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .btn-secondary {
+            background: var(--tg-theme-secondary-bg-color, #f4f4f5);
+            color: var(--tg-theme-text-color, #000);
+        }
+        .summary {
+            background: var(--tg-theme-secondary-bg-color, #f4f4f5);
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--tg-theme-hint-color, #ddd);
+            padding: 4px 0;
+        }
+        .summary-row:last-child { border-bottom: none; }
+        .summary-row .label { color: var(--tg-theme-hint-color, #999); }
+        .summary-row .value { font-weight: 500; text-align: right; }
+        .price-box {
+            background: var(--tg-theme-button-color, #3390ec);
+            color: var(--tg-theme-button-text-color, #fff);
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin-top: 12px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        .error {
+            color: #e53935;
+            font-size: 13px;
+            margin-top: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📦 Заявка на доставку</h1>
+        <p>Заполните форму для расчёта стоимости</p>
+    </div>
+
+    <div class="progress" id="progress"></div>
+
+    <!-- Шаг 1: Тип организации -->
+    <div class="step active" data-step="0">
+        <div class="step-title">1. Тип организации</div>
+        <div class="options" id="org-options">
+            <div class="option" data-value="ИП">🏢 ИП</div>
+            <div class="option" data-value="ООО">🏭 ООО</div>
+            <div class="option" data-value="Физ.лицо">👤 Физ. лицо</div>
+        </div>
+    </div>
+
+    <!-- Шаг 2: Направление -->
+    <div class="step" data-step="1">
+        <div class="step-title">2. Направление</div>
+        <div class="options" id="dir-options">
+            <div class="option" data-value="Москва">🏙 Москва</div>
+            <div class="option" data-value="Регионы">🌍 Регионы</div>
+        </div>
+    </div>
+
+    <!-- Шаг 3: Склад -->
+    <div class="step" data-step="2">
+        <div class="step-title">3. Выберите склад</div>
+        <div class="step-subtitle" id="warehouse-subtitle"></div>
+        <div class="options two-cols" id="warehouse-options"></div>
+    </div>
+
+    <!-- Шаг 4: Дата -->
+    <div class="step" data-step="3">
+        <div class="step-title">4. Дата поставки</div>
+        <div class="calendar">
+            <div class="cal-header">
+                <button id="cal-prev">‹</button>
+                <span id="cal-month"></span>
+                <button id="cal-next">›</button>
+            </div>
+            <div class="cal-grid" id="cal-weekdays"></div>
+            <div class="cal-grid" id="cal-days"></div>
+        </div>
+    </div>
+
+    <!-- Шаг 5: Забор -->
+    <div class="step" data-step="4">
+        <div class="step-title">5. Требуется ли забор груза?</div>
+        <div class="options">
+            <div class="option" data-value="Да">✅ Да, нужен забор</div>
+            <div class="option" data-value="Нет">❌ Нет, привезу сам</div>
+        </div>
+    </div>
+
+    <!-- Шаг 6: Тип груза -->
+    <div class="step" data-step="5">
+        <div class="step-title">6. Что везём?</div>
+        <div class="options">
+            <div class="option" data-value="Коробки">📦 Коробки</div>
+            <div class="option" data-value="Паллеты">🟫 Паллеты</div>
+        </div>
+    </div>
+
+    <!-- Шаг 7: Объём -->
+    <div class="step" data-step="6">
+        <div class="step-title">7. Объём</div>
+        <div class="input-group">
+            <label id="volume-label">Количество</label>
+            <input type="number" id="volume-input" min="1" placeholder="Введите число">
+            <div class="error" id="volume-error" style="display:none;"></div>
+        </div>
+    </div>
+
+    <!-- Шаг 8: Телефон -->
+    <div class="step" data-step="7">
+        <div class="step-title">8. Контактный телефон</div>
+        <div class="input-group">
+            <label>Номер для связи</label>
+            <input type="tel" id="phone-input" placeholder="+7 (___) ___-__-__">
+            <div class="error" id="phone-error" style="display:none;"></div>
+        </div>
+    </div>
+
+    <!-- Шаг 9: Подтверждение -->
+    <div class="step" data-step="8">
+        <div class="step-title">Проверьте данные</div>
+        <div class="summary" id="summary"></div>
+        <div class="price-box" id="price-box"></div>
+    </div>
+
+    <div class="nav-buttons">
+        <button class="btn btn-secondary" id="btn-back" style="display:none;">Назад</button>
+        <button class="btn btn-primary" id="btn-next" disabled>Далее</button>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        // Данные из бота (синхронизированы с PRICES и WAREHOUSES)
+        const WAREHOUSES = {
+            "Москва": ["Коледино", "Электросталь", "Обухово"],
+            "Регионы": ["Тула", "Рязань", "Казань", "Краснодар", "Невинномысск", "Екатеринбург", "Самара", "Котовск", "Шушары"]
+        };
+        const PRICES = {
+            "Обухово": { "Паллеты": { yes: 2500, no: 1500 }, "Коробки": { yes: 1900, no: 300 } },
+            "Коледино": { "Паллеты": { yes: 2500, no: 1500 }, "Коробки": { yes: 1900, no: 300 } },
+            "Электросталь": { "Паллеты": { yes: 2500, no: 1500 }, "Коробки": { yes: 1900, no: 300 } },
+            "Тула": { "Паллеты": { yes: 3000, no: 2000 }, "Коробки": { yes: 350, no: 350 } },
+            "Рязань": { "Паллеты": { yes: 3000, no: 2000 }, "Коробки": { yes: 350, no: 350 } },
+            "Казань": { "Паллеты": { yes: 3000, no: 2000 }, "Коробки": { yes: 350, no: 350 } },
+            "Краснодар": { "Паллеты": { yes: 3000, no: 2000 }, "Коробки": { yes: 350, no: 350 } },
+            "Невинномысск": { "Паллеты": { yes: 3000, no: 2000 }, "Коробки": { yes: 350, no: 350 } },
+            "Екатеринбург": { "Паллеты": { yes: 3000, no: 2000 }, "Коробки": { yes: 350, no: 350 } },
+            "Самара": { "Паллеты": { yes: 3000, no: 2000 }, "Коробки": { yes: 350, no: 350 } },
+            "Котовск": { "Паллеты": { yes: 3000, no: 2000 }, "Коробки": { yes: 350, no: 350 } },
+            "Шушары": { "Паллеты": { yes: 3000, no: 2000 }, "Коробки": { yes: 350, no: 350 } }
+        };
+        const MAX_BOXES_PER_PALLET = 16;
+
+        const TOTAL_STEPS = 9;
+        let currentStep = 0;
+        const data = {
+            org_type: "",
+            direction: "",
+            warehouse: "",
+            delivery_date: "",
+            pickup: "",
+            cargo_type: "",
+            volume: 0,
+            volume_text: "",
+            phone: ""
+        };
+
+        // Прогресс-бар
+        function renderProgress() {
+            const p = document.getElementById('progress');
+            p.innerHTML = '';
+            for (let i = 0; i < TOTAL_STEPS; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'progress-bar' + (i <= currentStep ? ' active' : '');
+                p.appendChild(bar);
+            }
+        }
+
+        function showStep(n) {
+            currentStep = n;
+            document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+            document.querySelector(`.step[data-step="${n}"]`).classList.add('active');
+            renderProgress();
+            document.getElementById('btn-back').style.display = n === 0 ? 'none' : 'block';
+            const btnNext = document.getElementById('btn-next');
+            btnNext.textContent = n === TOTAL_STEPS - 1 ? 'Отправить заявку ✓' : 'Далее';
+            updateNextButton();
+        }
+
+        function updateNextButton() {
+            const btn = document.getElementById('btn-next');
+            let enabled = false;
+            switch (currentStep) {
+                case 0: enabled = !!data.org_type; break;
+                case 1: enabled = !!data.direction; break;
+                case 2: enabled = !!data.warehouse; break;
+                case 3: enabled = !!data.delivery_date; break;
+                case 4: enabled = !!data.pickup; break;
+                case 5: enabled = !!data.cargo_type; break;
+                case 6: enabled = data.volume > 0; break;
+                case 7: enabled = normalizePhone(document.getElementById('phone-input').value) !== null; break;
+                case 8: enabled = true; break;
+            }
+            btn.disabled = !enabled;
+        }
+
+        // Обработка выбора опций
+        function setupOptions(containerId, dataKey, afterSelect) {
+            document.querySelectorAll(`#${containerId} .option`).forEach(opt => {
+                opt.addEventListener('click', () => {
+                    document.querySelectorAll(`#${containerId} .option`).forEach(o => o.classList.remove('selected'));
+                    opt.classList.add('selected');
+                    data[dataKey] = opt.dataset.value;
+                    tg.HapticFeedback.selectionChanged();
+                    if (afterSelect) afterSelect();
+                    updateNextButton();
+                });
+            });
+        }
+
+        setupOptions('org-options', 'org_type');
+        setupOptions('dir-options', 'direction', () => {
+            renderWarehouses();
+        });
+        setupOptions('warehouse-options', 'warehouse');
+        setupOptions('options', 'pickup'); // шаг 5 — но нужен отдельный обработчик
+
+        // Склады
+        function renderWarehouses() {
+            const container = document.getElementById('warehouse-options');
+            container.innerHTML = '';
+            const list = WAREHOUSES[data.direction] || [];
+            document.getElementById('warehouse-subtitle').textContent = `Категория: ${data.direction}`;
+            list.forEach(wh => {
+                const el = document.createElement('div');
+                el.className = 'option';
+                el.dataset.value = wh;
+                el.textContent = wh;
+                el.addEventListener('click', () => {
+                    container.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+                    el.classList.add('selected');
+                    data.warehouse = wh;
+                    tg.HapticFeedback.selectionChanged();
+                    updateNextButton();
+                });
+                container.appendChild(el);
+            });
+        }
+
+        // Забор (шаг 5) — отдельная обработка, т.к. контейнер общий
+        document.querySelectorAll('.step[data-step="4"] .option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                document.querySelectorAll('.step[data-step="4"] .option').forEach(o => o.classList.remove('selected'));
+                opt.classList.add('selected');
+                data.pickup = opt.dataset.value;
+                tg.HapticFeedback.selectionChanged();
+                updateNextButton();
+            });
+        });
+
+        // Тип груза (шаг 6)
+        document.querySelectorAll('.step[data-step="5"] .option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                document.querySelectorAll('.step[data-step="5"] .option').forEach(o => o.classList.remove('selected'));
+                opt.classList.add('selected');
+                data.cargo_type = opt.dataset.value;
+                document.getElementById('volume-label').textContent =
+                    data.cargo_type === 'Коробки' ? 'Количество коробок' : 'Количество паллет';
+                tg.HapticFeedback.selectionChanged();
+                updateNextButton();
+            });
+        });
+
+        // Календарь
+        const MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+        const WEEKDAYS = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+        let calYear, calMonth;
+
+        function initCalendar() {
+            const today = new Date();
+            calYear = today.getFullYear();
+            calMonth = today.getMonth();
+            const wd = document.getElementById('cal-weekdays');
+            wd.innerHTML = WEEKDAYS.map(d => `<div class="cal-weekday">${d}</div>`).join('');
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            document.getElementById('cal-month').textContent = `${MONTHS[calMonth]} ${calYear}`;
+            const container = document.getElementById('cal-days');
+            container.innerHTML = '';
+            const firstDay = new Date(calYear, calMonth, 1);
+            let startWeekday = firstDay.getDay();
+            if (startWeekday === 0) startWeekday = 7;
+            for (let i = 1; i < startWeekday; i++) {
+                const e = document.createElement('div');
+                e.className = 'cal-day empty';
+                container.appendChild(e);
+            }
+            const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            for (let d = 1; d <= daysInMonth; d++) {
+                const el = document.createElement('div');
+                el.className = 'cal-day';
+                el.textContent = d;
+                const thisDate = new Date(calYear, calMonth, d);
+                if (thisDate < today) {
+                    el.classList.add('past');
+                } else {
+                    el.addEventListener('click', () => {
+                        container.querySelectorAll('.cal-day').forEach(x => x.classList.remove('selected'));
+                        el.classList.add('selected');
+                        const dd = String(d).padStart(2, '0');
+                        const mm = String(calMonth + 1).padStart(2, '0');
+                        data.delivery_date = `${dd}.${mm}.${calYear}`;
+                        tg.HapticFeedback.selectionChanged();
+                        updateNextButton();
+                    });
+                }
+                container.appendChild(el);
+            }
+        }
+
+        document.getElementById('cal-prev').addEventListener('click', () => {
+            calMonth--;
+            if (calMonth < 0) { calMonth = 11; calYear--; }
+            const today = new Date();
+            if (calYear < today.getFullYear() || (calYear === today.getFullYear() && calMonth < today.getMonth())) {
+                calMonth = today.getMonth(); calYear = today.getFullYear();
+            }
+            renderCalendar();
+        });
+        document.getElementById('cal-next').addEventListener('click', () => {
+            calMonth++;
+            if (calMonth > 11) { calMonth = 0; calYear++; }
+            renderCalendar();
+        });
+
+        // Объём
+        document.getElementById('volume-input').addEventListener('input', (e) => {
+            const v = parseInt(e.target.value);
+            const err = document.getElementById('volume-error');
+            if (!v || v <= 0) {
+                data.volume = 0;
+                err.style.display = 'block';
+                err.textContent = 'Введите положительное число';
+            } else {
+                data.volume = v;
+                const unit = data.cargo_type === 'Коробки' ? 'коробок' : 'паллет';
+                data.volume_text = `${v} ${data.cargo_type}`;
+                err.style.display = 'none';
+            }
+            updateNextButton();
+        });
+
+        // Телефон
+        function normalizePhone(raw) {
+            const digits = raw.replace(/\D/g, '');
+            let d = digits;
+            if (d.startsWith('8') && d.length === 11) d = '7' + d.slice(1);
+            if (d.length === 10) d = '7' + d;
+            if (d.length === 11 && d.startsWith('7')) return '+' + d;
+            return null;
+        }
+
+        function formatPhoneInput(val) {
+            let digits = val.replace(/\D/g, '');
+            if (digits.startsWith('8')) digits = '7' + digits.slice(1);
+            if (!digits.startsWith('7')) digits = '7' + digits;
+            digits = digits.slice(0, 11);
+            let res = '+7';
+            if (digits.length > 1) res += ' (' + digits.slice(1, 4);
+            if (digits.length >= 5) res += ') ' + digits.slice(4, 7);
+            if (digits.length >= 8) res += '-' + digits.slice(7, 9);
+            if (digits.length >= 10) res += '-' + digits.slice(9, 11);
+            return res;
+        }
+
+        const phoneInput = document.getElementById('phone-input');
+        phoneInput.addEventListener('input', (e) => {
+            e.target.value = formatPhoneInput(e.target.value);
+            updateNextButton();
+        });
+        phoneInput.addEventListener('focus', () => {
+            if (!phoneInput.value) phoneInput.value = '+7 ';
+        });
+
+        // Расчёт цены (как в боте)
+        function calculatePrice() {
+            const wh = data.warehouse;
+            const ct = data.cargo_type;
+            const vol = data.volume;
+            const pickup = data.pickup.toLowerCase() === 'да' ? 'yes' : 'no';
+            if (!PRICES[wh]) return 'По запросу';
+            if (ct === 'Коробки') {
+                if (vol > 10) {
+                    const pallets = Math.ceil(vol / MAX_BOXES_PER_PALLET);
+                    const total = PRICES[wh]['Паллеты'][pickup] * pallets;
+                    return `${total.toLocaleString('ru-RU')} ₽ (≈ ${pallets} паллет)`;
+                }
+                const total = PRICES[wh]['Коробки'][pickup] * vol;
+                return `${total.toLocaleString('ru-RU')} ₽`;
+            }
+            if (ct === 'Паллеты') {
+                const total = PRICES[wh]['Паллеты'][pickup] * vol;
+                return `${total.toLocaleString('ru-RU')} ₽`;
+            }
+            return 'По запросу';
+        }
+
+        // Итоговая сводка
+        function renderSummary() {
+            data.phone = normalizePhone(phoneInput.value);
+            const price = calculatePrice();
+            const rows = [
+                ['Организация', data.org_type],
+                ['Направление', data.direction],
+                ['Склад', data.warehouse],
+                ['Дата поставки', data.delivery_date],
+                ['Забор груза', data.pickup],
+                ['Тип груза', data.cargo_type],
+                ['Объём', data.volume_text],
+                ['Телефон', data.phone]
+            ];
+            document.getElementById('summary').innerHTML = rows.map(([l, v]) =>
+                `<div class="summary-row"><span class="label">${l}</span><span class="value">${v}</span></div>`
+            ).join('');
+            document.getElementById('price-box').textContent = `💰 ${price}`;
+        }
+
+        // Навигация
+        document.getElementById('btn-next').addEventListener('click', () => {
+            if (currentStep === 7) {
+                data.phone = normalizePhone(phoneInput.value);
+                if (!data.phone) {
+                    document.getElementById('phone-error').style.display = 'block';
+                    document.getElementById('phone-error').textContent = 'Некорректный номер';
+                    return;
+                }
+                renderSummary();
+            }
+            if (currentStep === TOTAL_STEPS - 1) {
+                submitData();
+                return;
+            }
+            if (currentStep === 2) initCalendar();
+            tg.HapticFeedback.impactOccurred('light');
+            showStep(currentStep + 1);
+        });
+
+        document.getElementById('btn-back').addEventListener('click', () => {
+            if (currentStep > 0) {
+                tg.HapticFeedback.impactOccurred('light');
+                showStep(currentStep - 1);
+            }
+        });
+
+        // Отправка данных в бота
+        function submitData() {
+            const payload = JSON.stringify(data);
+            tg.HapticFeedback.notificationOccurred('success');
+            try {
+                tg.sendData(payload);
+                document.body.innerHTML = `
+                    <div style="text-align:center;padding:60px 20px;">
+                        <div style="font-size:64px;">✅</div>
+                        <h2 style="margin:16px 0;">Заявка отправлена!</h2>
+                        <p style="color:var(--tg-theme-hint-color,#999);">Менеджер свяжется с вами по номеру ${data.phone}</p>
+                    </div>
+                `;
+                setTimeout(() => tg.close(), 2500);
+            } catch (e) {
+                alert('Ошибка отправки: ' + e.message);
+            }
+        }
+
+        // Инициализация
+        renderProgress();
+        initCalendar();
+        updateNextButton();
+    </script>
+</body>
+</html>
